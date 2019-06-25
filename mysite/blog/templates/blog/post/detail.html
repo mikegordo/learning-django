@@ -31,4 +31,13 @@
 {% endif %}
 
 <p><a href="{% url "post_share" post.id %}">Share this post</a></p>
+
+{% for t in post_tags_ids %}
+    {{ t }}<br/>
+{% endfor %}
+
+{% for p in similar_posts %}
+    {{ p }}<br/>
+{% endfor %}
+
 {% endblock %}

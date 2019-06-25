@@ -4,7 +4,11 @@ from .models import Post, Comment
 from django.views.generic import ListView
 from .forms import EmailPostForm, CommentForm
 from taggit.models import Tag
+from django.db.models import Count
+import time
+import logging
 
+logger = logging.getLogger('poop')
 
 def post_list(request, tag_slug=None):
     object_list = Post.published.all()
@@ -34,7 +38,18 @@ class PostListView(ListView):
     paginate_by = 3
     template_name = 'blog/post/list.html'
 
+# decorator to log time
+def time_logged(function):
+    def inner(*args, **kwargs):
+        begin = time.time()
+        z = function(*args, **kwargs)
+        duration = time.time() - begin
+        logger.info("Total duration of {} is {}".format(function.__name__, duration))
+        return z
+    return inner
 
+
+@time_logged
 def post_detail(request, year, month, day, post):
     post = get_object_or_404(Post, slug=post,
                              status='published',
@@ -53,9 +68,17 @@ def post_detail(request, year, month, day, post):
     else:
         comment_form = CommentForm()
 
+    # List of similar posts
+    # list of tags in this post
+    post_tags_ids = post.tags.values_list('id', flat=True)
+    similar_posts = Post.published.filter(tags__in=post_tags_ids).exclude(id=post.id)
+    similar_posts = similar_posts.annotate(same_tags=Count('tags')).order_by('-same_tags', '-publish')[:4]
+
     return render(request, 'blog/post/detail.html', {'post': post,
                                                      'comments': comments,
-                                                     'comment_form': comment_form})
+                                                     'comment_form': comment_form,
+                                                     'post_tags_ids': post_tags_ids,
+                                                     'similar_posts': similar_posts})
 
 
 def post_share(request, post_id):
